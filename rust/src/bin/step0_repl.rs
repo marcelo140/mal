@@ -1,5 +1,5 @@
-use std::io;
-use std::io::{Write, BufRead};
+use rustyline::Editor;
+use rustyline::error::ReadlineError;
 
 fn read(input: &str) -> &str {
     return input;
@@ -18,20 +18,21 @@ fn rep(input: &str) -> &str {
 }
 
 fn main() {
-    let mut buffer = String::new();
-    let stdin = io::stdin();
-    let mut hstdin = stdin.lock();
+    let mut ed = Editor::<()>::new();
+    ed.load_history(".mal_history").ok();
 
-    print!("user> ");
-    io::stdout().flush().unwrap();
-    let mut bytes_read = hstdin.read_line(&mut buffer).unwrap();
+    loop {
+        let line = ed.readline("user> ");
 
-    while bytes_read > 0 {
-        print!("{}", rep(&buffer));
-        print!("user> ");
-        io::stdout().flush().unwrap();
-
-        buffer.clear();
-        bytes_read = hstdin.read_line(&mut buffer).unwrap();
+        match line {
+            Ok(line) => {
+                println!("{}", rep(&line));
+                ed.add_history_entry(line);
+            },
+            Err(ReadlineError::Eof) => break,
+            Err(err) => println!("Error: {:?}", err),
+        }
     }
+
+    ed.save_history(".mal_history").ok();
 }
