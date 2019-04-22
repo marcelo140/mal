@@ -1,19 +1,29 @@
+extern crate rust;
+
 use rustyline::Editor;
 use rustyline::error::ReadlineError;
 
-fn read(input: &str) -> &str {
+use pom::Error;
+
+use rust::reader::read_form;
+use rust::types::MalVal;
+
+fn read(input: &str) -> Result<MalVal, Error> {
+    read_form().parse(input.as_bytes())
+}
+
+fn eval(input: Result<MalVal, Error>) -> Result<MalVal, Error> {
     input
 }
 
-fn eval(input: &str) -> &str {
-    input
+fn print(input: Result<MalVal, Error>) -> String {
+    match input {
+        Ok(input) => input.to_string(),
+        Err(err) => err.to_string() + "GOT EOF",
+    }
 }
 
-fn print(input: &str) -> &str {
-    input
-}
-
-fn rep(input: &str) -> &str {
+fn rep(input: &str) -> String {
     print(eval(read(input)))
 }
 
@@ -26,7 +36,7 @@ fn main() {
 
         match line {
             Ok(line) => {
-                println!("{}", rep(&line));
+                println!("{}", &rep(&line));
                 ed.add_history_entry(line);
             },
             Err(ReadlineError::Eof) => break,
