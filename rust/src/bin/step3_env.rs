@@ -49,7 +49,7 @@ fn eval(input: MalVal, env: &mut Env) -> Result<MalVal> {
     if !input.is_list() {
         return Ok(eval_ast(input, env)?);
     }
-    
+
     let l = input.cast_to_list()?;
 
     if l.is_empty() {
@@ -65,16 +65,17 @@ fn eval(input: MalVal, env: &mut Env) -> Result<MalVal> {
         },
 
         MalVal::Sym(ref sym) if sym == "let*" => {
-            let mut env = Env::new(Some(env.clone()));
+            let mut env = Env::new(Some(env));
 
             let binds = l[1].clone().cast_to_list()?;
 
             for (bind, expr) in binds.clone().into_iter().tuples() {
                 let bind = bind.cast_to_sym()?;
                 let v = eval(expr, &mut env)?;
+
                 env.set(bind, v);
             }
-            
+
             eval(l[2].clone(), &mut env)
         },
 
