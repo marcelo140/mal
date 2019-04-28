@@ -5,6 +5,7 @@ use std::error;
 use std::fmt::{self, Display};
 
 pub type FnExpr = fn(Vec<MalVal>) -> Result<MalVal>;
+
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]

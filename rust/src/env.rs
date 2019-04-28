@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use crate::types::*;
 
@@ -20,7 +19,7 @@ impl Env {
     pub fn get(&self, key: &str) -> Option<MalVal> {
         match self.mappings.get(key) {
             Some(v) => Some(v.clone()),
-            None => match Deref::deref(&self.outer) {
+            None => match &*self.outer {
                 Some(env) => env.get(key),
                 None => None,
             }
