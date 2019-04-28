@@ -1,7 +1,5 @@
 extern crate rust;
 
-use std::collections::HashMap;
-
 use rustyline::Editor;
 use rustyline::error::ReadlineError;
 
@@ -11,33 +9,31 @@ use rust::reader::read_form;
 use rust::types::*;
 use rust::env::Env;
 
-fn eval_ast(val: MalVal, repl_env: &mut Env) -> Result<MalVal> {
-    let mut repl_env = repl_env;
-
+fn eval_ast(val: MalVal, env: &mut Env) -> Result<MalVal> {
     match val {
         MalVal::Sym(x) => {
-            repl_env.get(&x.as_str().to_string())
+            env.get(&x)
                 .ok_or_else(|| Error::NoSymbolFound(x))
         },
 
         MalVal::List(vec) => {
             vec.into_iter()
-                .map(|x| eval(Ok(x), &mut repl_env))
-                .collect::<Result<Vec<MalVal>>>()
+                .map(|x| eval(x, &mut *env))
+                .collect::<Result<_>>()
                 .map(MalVal::List)
         },
 
         MalVal::HashMap(hm) => {
-            let hm = hm.into_iter()
-                .map(|(k, v)| (k, eval(Ok(v), &mut repl_env).unwrap()))
-                .collect::<HashMap<String, MalVal>>();
-                Ok(MalVal::HashMap(hm))
+            hm.into_iter()
+                .map(|(k, v)| eval(v, &mut *env).map(|v| (k,v)) )
+                .collect::<Result<_>>()
+                .map(MalVal::HashMap)
         },
 
         MalVal::Vector(vec) => {
             vec.into_iter()
-                .map(|x| eval(Ok(x), &mut repl_env))
-                .collect::<Result<Vec<MalVal>>>()
+                .map(|x| eval(x, &mut *env))
+                .collect::<Result<_>>()
                 .map(MalVal::Vector)
         }
 
@@ -49,9 +45,7 @@ fn read(input: &str) -> Result<MalVal> {
     read_form().parse(input.as_bytes()).map_err(From::from)
 }
 
-fn eval(input: Result<MalVal>, env: &mut Env) -> Result<MalVal> {
-    let input = input?;
-
+fn eval(input: MalVal, env: &mut Env) -> Result<MalVal> {
     if !input.is_list() {
         return Ok(eval_ast(input, env)?);
     }
@@ -65,7 +59,7 @@ fn eval(input: Result<MalVal>, env: &mut Env) -> Result<MalVal> {
     match l[0] {
         MalVal::Sym(ref sym) if sym == "def!" => {
             let key = l[1].to_string();
-            let v = eval(Ok(l[2].clone()), env)?;
+            let v = eval(l[2].clone(), env)?;
             env.set(key, v.clone());
             Ok(v)
         },
@@ -77,11 +71,11 @@ fn eval(input: Result<MalVal>, env: &mut Env) -> Result<MalVal> {
 
             for (bind, expr) in binds.clone().into_iter().tuples() {
                 let bind = bind.cast_to_sym()?;
-                let v = eval(Ok(expr), &mut env)?;
+                let v = eval(expr, &mut env)?;
                 env.set(bind, v);
             }
             
-            eval(Ok(l[2].clone()), &mut env)
+            eval(l[2].clone(), &mut env)
         },
 
         _ => {
@@ -104,8 +98,9 @@ fn print(input: Result<MalVal>) -> String {
 }
 
 fn rep(input: &str, env: &mut Env) -> String {
-    let mut env = env;
-    print(eval(read(input), &mut env))
+    let v = read(input).and_then(|v| eval(v, &mut *env));
+
+    print(v)
 }
 
 fn add(args: Vec<MalVal>) -> Result<MalVal> {
@@ -149,10 +144,10 @@ fn main() {
     ed.load_history(".mal_history").ok();
 
     let mut repl_env = Env::new(None);
-    repl_env.set("+".to_string(), MalVal::Fun(add as FnExpr));
-    repl_env.set("-".to_string(), MalVal::Fun(sub as FnExpr));
-    repl_env.set("*".to_string(), MalVal::Fun(mul as FnExpr));
-    repl_env.set("/".to_string(), MalVal::Fun(div as FnExpr));
+    repl_env.set("+".to_string(), MalVal::Fun(add));
+    repl_env.set("-".to_string(), MalVal::Fun(sub));
+    repl_env.set("*".to_string(), MalVal::Fun(mul));
+    repl_env.set("/".to_string(), MalVal::Fun(div));
 
     loop {
         let line = ed.readline("user> ");
