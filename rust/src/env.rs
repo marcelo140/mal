@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::types::*;
 
 pub struct Env<'a> {
-    mappings: HashMap<String, MalVal>,
+    mappings: HashMap<String, MValue>,
     outer: Option<&'a Env<'a>>, 
 }
 
@@ -11,11 +11,11 @@ impl<'a> Env<'a> {
     pub fn new(outer: Option<&'a Env>) -> Self {
         Env {
             mappings: HashMap::new(),
-            outer: outer,
+            outer
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<MalVal> {
+    pub fn get(&self, key: &str) -> Option<MValue> {
         match self.mappings.get(key) {
             Some(v) => Some(v.clone()),
             None => match &self.outer {
@@ -25,7 +25,7 @@ impl<'a> Env<'a> {
         }
     }
 
-    pub fn set(&mut self, key: String, value: MalVal) {
+    pub fn set(&mut self, key: String, value: MValue) {
         self.mappings.insert(key, value);
     }
 }
