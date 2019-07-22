@@ -96,3 +96,10 @@ pub fn gte(args: Vec<MValue>) -> Result<MValue> {
 
     Ok(MValue::bool(x >= y))
 }
+
+pub fn prn(args: Vec<MValue>) -> Result<MValue> {
+    let x = args.get(0).map(ToString::to_string).unwrap_or_else(|| "".to_string());
+
+    println!("{}", x);
+    Ok(MValue::nil())
+}

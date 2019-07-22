@@ -137,6 +137,7 @@ fn main() {
     repl_env.set("<".to_string(), MValue::function(lt)); // to string
     repl_env.set(">=".to_string(), MValue::function(gte)); // to string
     repl_env.set("<=".to_string(), MValue::function(lte)); // to string
+    repl_env.set("prn".to_string(), MValue::function(prn)); // to string
 
     loop {
         let line = ed.readline("user> ");
