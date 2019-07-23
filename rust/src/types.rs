@@ -22,6 +22,7 @@ pub enum MalVal {
     HashMap(HashMap<String, MValue>),
     Sym(String),
     Str(String),
+    Keyword(String),
     Fun(FnExpr),
     Lambda(MClosure),
     Nil,
@@ -78,6 +79,10 @@ impl MValue {
 
     pub fn string<T: Into<String>>(value: T) -> MValue {
         MValue(Rc::new(MalVal::Str(value.into())))
+    }
+
+    pub fn keyword(value: String) -> MValue {
+        MValue(Rc::new(MalVal::Keyword(value)))
     }
 
     pub fn function(value: FnExpr) -> MValue {
@@ -148,7 +153,7 @@ impl MValue {
 
     pub fn cast_to_string(&self) -> Result<String> {
         match *self.0 {
-            MalVal::Str(ref x) => Ok(x.clone()),
+            MalVal::Keyword(ref x) | MalVal::Str(ref x) => Ok(x.clone()),
             _ => Err(Error::EvalError(format!("{} is not a string", self))),
         }
     }
@@ -186,6 +191,7 @@ impl MValue {
             Int(ref k) => k.to_string(),
             Bool(ref b) => b.to_string(),
             Sym(ref s) => s.to_string(),
+            Keyword(ref s) => format!(":{}", s),
             Str(ref s) => {
                 if readably {
                     format!("\"{}\"", escape_str(s))
@@ -219,26 +225,9 @@ fn escape_str(s: &str) -> String {
     }).collect::<Vec<String>>().join("")
 }
 
-// TODO: Refactor fmt
 impl Display for MValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self.0 {
-            Int(ref k) =>     write!(f, "{}", k),
-            Bool(ref b) =>    write!(f, "{}", b),
-            List(ref l) =>    write!(f, "{}", print_sequence(&l, "(", ")", false)),
-            Vector(ref l) =>  write!(f, "{}", print_sequence(&l, "[", "]", false)),
-            HashMap(ref l) => {
-                let l = l.iter()
-                    .flat_map(|(k, v)| vec![MValue::string(k.to_string()), v.clone()])
-                    .collect::<Vec<MValue>>();
-                write!(f, "{}", print_sequence(&l, "{", "}", false))
-            },
-            Sym(ref s) =>     write!(f, "{}", s),
-            Str(ref s) =>     write!(f, "{}", s),
-            Nil =>        write!(f, "nil"),
-            Fun(fun) =>     write!(f, "{:?}", fun),
-            Lambda(ref _fun) =>     write!(f, "function"),
-        }
+        write!(f, "{}", self.pr_str(false))
     }
 }
 

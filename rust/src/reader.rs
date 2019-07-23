@@ -18,7 +18,7 @@ fn ignored<'a>() -> Parser<'a, u8, ()> {
 }
 
 fn symbol(term: u8) -> bool {
-    b"!#$%&|*+-/:<=>?_".contains(&term)
+    b"!#$%&|*+-/<=>?_".contains(&term)
 }
 
 fn escaped<'a>() -> Parser<'a, u8, u8> {
@@ -76,7 +76,7 @@ fn pair_list(list: &mut Vec<MValue>) -> Result<HashMap<String, MValue>> {
 }
 
 fn read_atom<'a>() -> Parser<'a, u8, MValue> {
-    read_number() | read_symbol() | read_string()
+    read_keyword() | read_number() | read_symbol() | read_string()
 }
 
 fn read_number<'a>() -> Parser<'a, u8, MValue> {
@@ -106,7 +106,7 @@ fn read_macro<'a>() -> Parser<'a, u8, MValue> {
         | read_metadata()
 }
 
-pub fn read_quote<'a>() -> Parser<'a, u8, MValue> {
+fn read_quote<'a>() -> Parser<'a, u8, MValue> {
     let p = sym(b'\'') * call(read_form);
     p.map(|mv| {
         let v = vec![MValue::symbol("quote".to_string()), mv];
@@ -146,18 +146,27 @@ fn read_splice_unquote<'a>() -> Parser<'a, u8, MValue> {
     })
 }
 
-pub fn read_string<'a>() -> Parser<'a, u8, MValue> {
+fn read_string<'a>() -> Parser<'a, u8, MValue> {
     let p = sym(b'\"') * (escaped() | none_of(b"\"")).repeat(0..) - sym(b'\"');
 
     p.convert(String::from_utf8)
      .map(MValue::string)
 }
 
+fn read_keyword<'a>() -> Parser<'a, u8, MValue> {
+    let p = sym(b':') * 
+        (is_a(symbol) | is_a(alpha)) + (is_a(symbol) | is_a(alphanum)).repeat(0..);
+
+    p.map(|(h, mut t)| { t.insert(0, h); t })
+     .convert(String::from_utf8)
+     .map(MValue::keyword)
+}
+
 fn read_symbol<'a>() -> Parser<'a, u8, MValue> {
     let p = (is_a(symbol) | is_a(alpha)) + (is_a(symbol) | is_a(alphanum)).repeat(0..);
 
     p.collect()
-     .map(|k| k.to_vec() )
+     .map(|k| k.to_vec())
      .convert(String::from_utf8)
      .map(|s| {
          match s.as_ref() {
@@ -168,3 +177,11 @@ fn read_symbol<'a>() -> Parser<'a, u8, MValue> {
          }
      })
 }
+
+#[test]
+fn test_read_keyword() {
+    let value = read_keyword().parse(":ok".as_bytes()).unwrap();
+    
+    assert_eq!(value, MValue::keyword("ok".to_string()));
+}
+
