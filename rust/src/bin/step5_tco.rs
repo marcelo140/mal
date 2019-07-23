@@ -40,81 +40,89 @@ fn read(input: &str) -> Result<MValue> {
 }
 
 fn eval(input: MValue, env: &Env) -> Result<MValue> {
-    if !input.is_list() {
-        return eval_ast(input, env);
-    }
+    let mut env = env.clone();
+    let mut input = input.clone();
 
-    let mut l = input.cast_to_list()?; // unpack
+    loop {
+        if !input.is_list() {
+            return eval_ast(input, &env);
+        }
 
-    if l.is_empty() {
-        return Ok(MValue::list(l)); // pack
-    }
+        let mut l = input.clone().cast_to_list()?;
 
-    match *l[0].0 {
-        MalVal::Sym(ref sym) if sym == "do" => {
-            let v = MValue::list(l.split_off(1));
-            eval_ast(v, env)?.cast_to_list()?.pop().ok_or_else(|| Error::EvalError("Expected additional element".to_string()))
-        },
+        if l.is_empty() {
+            return Ok(MValue::list(l));
+        }
 
-        MalVal::Sym(ref sym) if sym == "if" => {
-            let condition = eval(l[1].clone(), env)?; // MValue clone
-            match *condition.0 {
-                MalVal::Bool(false) | MalVal::Nil if l.len() >= 4 =>
-                    eval(l[3].clone(), env), // MValue clone
-                MalVal::Bool(false) | MalVal::Nil =>
-                    Ok(MValue::nil()),
-                _ =>
-                    eval(l[2].clone(), env), // MValue clone
-            }
-        },
+        match *l[0].0 {
+            MalVal::Sym(ref sym) if sym == "do" => {
+                input = l.pop().unwrap();
+                let v = MValue::list(l[1..].to_vec());
 
-        MalVal::Sym(ref sym) if sym == "fn*" => {
-            let binds = l[1].clone()
-                .cast_to_list()?
-                .iter()
-                .flat_map(MValue::cast_to_symbol)
-                .collect::<Vec<String>>();
+                eval_ast(v, &env)?;
+            },
 
-            let body = l[2].clone();
+            MalVal::Sym(ref sym) if sym == "if" => {
+                let condition = eval(l[1].clone(), &env)?; // MValue clone
+                match *condition.0 {
+                    MalVal::Bool(false) | MalVal::Nil if l.len() >= 4 =>
+                        input = l[3].clone(),
+                    MalVal::Bool(false) | MalVal::Nil =>
+                        return Ok(MValue::nil()),
+                    _ =>
+                        input = l[2].clone(),
+                }
+            },
 
-            Ok(MValue::lambda(env.clone(), binds, body))
-        },
+            MalVal::Sym(ref sym) if sym == "fn*" => {
+                let parameters = l[1].clone()
+                    .cast_to_list()?
+                    .iter()
+                    .flat_map(MValue::cast_to_symbol)
+                    .collect::<Vec<String>>();
 
-        MalVal::Sym(ref sym) if sym == "def!" => {
-            let key = l[1].cast_to_symbol()?;
-            let v = eval(l[2].clone(), env)?; // malval clone
-            env.set(key, v.clone()); // malval clone
-            Ok(v)
-        },
+                let body = l[2].clone();
 
-        MalVal::Sym(ref sym) if sym == "let*" => {
-            let env = Env::new(Some(env.clone()));
+                return Ok(MValue::lambda(env.clone(), parameters, body));
+            },
 
-            let binds = l[1].clone().cast_to_list()?; // malval clone
+            MalVal::Sym(ref sym) if sym == "def!" => {
+                let key = l[1].cast_to_symbol()?;
+                let v = eval(l[2].clone(), &env)?; // malval clone
+                env.set(key, v.clone()); // malval clone
+                return Ok(v);
+            },
 
-            for (bind, expr) in binds.clone().into_iter().tuples() {
-                let bind = bind.cast_to_symbol()?;
-                let v = eval(expr, &env)?;
+            MalVal::Sym(ref sym) if sym == "let*" => {
+                env = Env::new(Some(env.clone()));
 
-                env.set(bind, v);
-            }
+                let binds = l[1].clone().cast_to_list()?; // malval clone
 
-            eval(l[2].clone(), &env) // malval clone
-        },
+                for (bind, expr) in binds.clone().into_iter().tuples() {
+                    let bind = bind.cast_to_symbol()?;
+                    let v = eval(expr, &env)?;
 
-        _ => {
-            let evaluated_list = eval_ast(MValue::list(l), env)?.cast_to_list()?;
-            let args = evaluated_list[1..].to_vec();
+                    env.set(bind, v);
+                }
 
-            if let MalVal::Fun(fun) = *evaluated_list[0].0 {
-                fun(args)
-            } else if let MalVal::Lambda(ref fun) = *evaluated_list[0].0 {
-                let (val, env) = fun.apply(args);
-                eval(val, &env)
-            } else {
-                Err(Error::EvalError(format!("{:?}", evaluated_list)))
-            }
-        },
+                input = l[2].clone();
+            },
+
+            _ => {
+                let evaluated_list = eval_ast(MValue::list(l), &env)?.cast_to_list()?;
+                let args = evaluated_list[1..].to_vec();
+
+                if let MalVal::Fun(fun) = *evaluated_list[0].0 {
+                    return fun(args);
+                } else if let MalVal::Lambda(ref fun) = *evaluated_list[0].0 {
+                    let (body, new_env) = fun.apply(args);
+                    input = body;
+                    env = new_env;
+                } else {
+                    return Err(Error::EvalError(format!("{:?}", evaluated_list)));
+                }
+            },
+        }
     }
 }
 
