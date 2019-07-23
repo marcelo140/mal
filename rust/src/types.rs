@@ -180,6 +180,66 @@ impl MValue {
             _ => Err(Error::EvalError(format!("{} is not a hasmap", self))),
         }
     }
+
+    pub fn pr_str(&self, readably: bool) -> String {
+        match *self.0 {
+            Int(ref k) => k.to_string(),
+            Bool(ref b) => b.to_string(),
+            Sym(ref s) => s.to_string(),
+            Str(ref s) => {
+                if readably {
+                    format!("\"{}\"", escape_str(s))
+                } else {
+                    s.to_string()
+                }
+            },
+            Nil => "nil".to_string(),
+            List(ref l) => print_sequence(&l, "(", ")", readably),
+            Vector(ref l) => print_sequence(&l, "[", "]", readably),
+            HashMap(ref l) => {
+                let l = l.iter()
+                    .flat_map(|(k, v)| vec![MValue::string(k.to_string()), v.clone()])
+                    .collect::<Vec<MValue>>();
+                print_sequence(&l, "{", "}", readably)
+            },
+            Fun(_fun) => "#<function>".to_string(),
+            Lambda(ref _fun) => "#<function>".to_string(),
+        }
+    }
+}
+
+fn escape_str(s: &str) -> String {
+    s.chars().map(|c| {
+	match c {
+	    '"' => "\\\"".to_string(),
+	    '\n' => "\\n".to_string(),
+	    '\\' => "\\\\".to_string(),
+	    _ => c.to_string(),
+	}
+    }).collect::<Vec<String>>().join("")
+}
+
+// TODO: Refactor fmt
+impl Display for MValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self.0 {
+            Int(ref k) =>     write!(f, "{}", k),
+            Bool(ref b) =>    write!(f, "{}", b),
+            List(ref l) =>    write!(f, "{}", print_sequence(&l, "(", ")", false)),
+            Vector(ref l) =>  write!(f, "{}", print_sequence(&l, "[", "]", false)),
+            HashMap(ref l) => {
+                let l = l.iter()
+                    .flat_map(|(k, v)| vec![MValue::string(k.to_string()), v.clone()])
+                    .collect::<Vec<MValue>>();
+                write!(f, "{}", print_sequence(&l, "{", "}", false))
+            },
+            Sym(ref s) =>     write!(f, "{}", s),
+            Str(ref s) =>     write!(f, "{}", s),
+            Nil =>        write!(f, "nil"),
+            Fun(fun) =>     write!(f, "{:?}", fun),
+            Lambda(ref _fun) =>     write!(f, "function"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -201,33 +261,11 @@ impl Display for Error {
     }
 }
 
-// TODO: Refactor fmt
-impl Display for MValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self.0 {
-            Int(ref k) =>     write!(f, "{}", k),
-            Bool(ref b) =>    write!(f, "{}", b),
-            List(ref l) =>    write!(f, "{}", print_sequence(&l, "(", ")")),
-            Vector(ref l) =>  write!(f, "{}", print_sequence(&l, "[", "]")),
-            HashMap(ref l) => {
-                let l = l.iter()
-                    .flat_map(|(k, v)| vec![MValue::string(k.to_string()), v.clone()])
-                    .collect::<Vec<MValue>>();
-                write!(f, "{}", print_sequence(&l, "{", "}"))
-            },
-            Sym(ref s) =>     write!(f, "{}", s),
-            Str(ref s) =>     write!(f, "{}", s),
-            Nil =>        write!(f, "nil"),
-            Fun(fun) =>     write!(f, "{:?}", fun),
-            Lambda(ref _fun) =>     write!(f, "function"),
-        }
-    }
-}
 
-fn print_sequence(seq: &[MValue], start: &str, end: &str) -> String {
+fn print_sequence(seq: &[MValue], start: &str, end: &str, readably: bool) -> String {
     let seq: Vec<String> = seq
         .iter()
-        .map(ToString::to_string)
+        .map(|v| v.pr_str(readably))
         .collect();
 
     format!("{}{}{}", start, seq.join(" "), end)
