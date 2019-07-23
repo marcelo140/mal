@@ -106,7 +106,7 @@ fn read_macro<'a>() -> Parser<'a, u8, MValue> {
         | read_metadata()
 }
 
-fn read_quote<'a>() -> Parser<'a, u8, MValue> {
+pub fn read_quote<'a>() -> Parser<'a, u8, MValue> {
     let p = sym(b'\'') * call(read_form);
     p.map(|mv| {
         let v = vec![MValue::symbol("quote".to_string()), mv];
@@ -146,12 +146,10 @@ fn read_splice_unquote<'a>() -> Parser<'a, u8, MValue> {
     })
 }
 
-fn read_string<'a>() -> Parser<'a, u8, MValue> {
+pub fn read_string<'a>() -> Parser<'a, u8, MValue> {
     let p = sym(b'\"') * (escaped() | none_of(b"\"")).repeat(0..) - sym(b'\"');
 
-    p.collect()
-     .map(|k| k.to_vec() )
-     .convert(String::from_utf8)
+    p.convert(String::from_utf8)
      .map(MValue::string)
 }
 
