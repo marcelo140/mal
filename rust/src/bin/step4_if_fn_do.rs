@@ -151,6 +151,8 @@ fn main() {
     repl_env.set("<=".to_string(), MValue::function(lte)); // to string
     repl_env.set("prn".to_string(), MValue::function(prn)); // to string
 
+    rep("(def! not (fn* (a) (if a false true)))", &mut repl_env);
+
     loop {
         let line = ed.readline("user> ");
 
