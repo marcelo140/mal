@@ -27,3 +27,6 @@ step8_macros:
 
 step9_try:
 	cargo build --bin step5_tco
+
+stepA_mal:
+	cargo build --bin step5_tco
